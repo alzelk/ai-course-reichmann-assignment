@@ -1,0 +1,158 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>RouteWise AI — Model Routing Prototype</title>
+    <link rel="stylesheet" href="styles.css">
+  </head>
+  <body>
+    <main class="shell">
+      <header class="hero">
+        <div>
+          <p class="eyebrow">ROUTEWISE AI · INTERACTIVE PROTOTYPE</p>
+          <h1>Put every prompt in the right vehicle.</h1>
+          <p class="lede">RouteWise evaluates intent, difficulty, risk, latency, and modality before selecting the lowest-cost model expected to meet the quality target.</p>
+        </div>
+        <div class="traffic-card">
+          <span>Core insight</span>
+          <strong>A Ferrari and a Corolla move at the same speed in traffic.</strong>
+          <p>Premium intelligence only creates value when the task can use it.</p>
+        </div>
+      </header>
+
+      <section class="workspace">
+        <form id="router-form" class="panel form-panel">
+          <div class="panel-heading">
+            <div>
+              <p class="step">01 · REQUEST</p>
+              <h2>Describe the task</h2>
+            </div>
+            <select id="examples" aria-label="Load an example">
+              <option value="">Load example…</option>
+              <option value="Summarize this customer email in five bullets and extract the requested delivery date.">Routine extraction</option>
+              <option value="Compare three market-entry strategies for a B2B fintech product and recommend one using explicit assumptions and trade-offs.">Business strategy</option>
+              <option value="Review this enterprise data-processing agreement for privacy, security, and regulatory risks before signature.">High-stakes review</option>
+            </select>
+          </div>
+
+          <label for="prompt">User prompt</label>
+          <textarea id="prompt" rows="8" required>Compare three market-entry strategies for a B2B fintech product and recommend one using explicit assumptions and trade-offs.</textarea>
+
+          <div class="controls-grid">
+            <label>Business risk
+              <select id="risk">
+                <option value="low">Low</option>
+                <option value="medium" selected>Medium</option>
+                <option value="high">High</option>
+              </select>
+            </label>
+            <label>Latency preference
+              <select id="latency">
+                <option value="fast">Fast</option>
+                <option value="balanced" selected>Balanced</option>
+              </select>
+            </label>
+            <label>Expected output
+              <select id="output-tokens">
+                <option value="250">Short · 250 tokens</option>
+                <option value="600" selected>Medium · 600 tokens</option>
+                <option value="1500">Long · 1,500 tokens</option>
+              </select>
+            </label>
+          </div>
+
+          <div class="checks">
+            <label><input id="needs-tools" type="checkbox"> Requires tools or live data</label>
+            <label><input id="needs-vision" type="checkbox"> Requires image understanding</label>
+          </div>
+
+          <button type="submit">Route this request <span>→</span></button>
+          <p class="disclaimer">Simulation only. Production routing requires provider capability checks, evaluations, policy enforcement, and live price configuration.</p>
+        </form>
+
+        <section class="panel result-panel" aria-live="polite">
+          <p class="step">02 · ROUTING DECISION</p>
+          <div class="vehicle-badge" id="vehicle-badge">COROLLA</div>
+          <h2 id="model-name">gpt-5.4</h2>
+          <p id="model-description" class="model-description"></p>
+
+          <div class="score-grid">
+            <div><span>Intent</span><strong id="intent"></strong></div>
+            <div><span>Complexity</span><strong id="complexity"></strong></div>
+            <div><span>Risk</span><strong id="risk-score"></strong></div>
+            <div><span>Est. tokens</span><strong id="tokens"></strong></div>
+          </div>
+
+          <div class="cost-card">
+            <div>
+              <span>Selected route</span>
+              <strong id="selected-cost"></strong>
+            </div>
+            <div>
+              <span>Always-premium baseline</span>
+              <strong id="baseline-cost"></strong>
+            </div>
+            <div class="savings">
+              <span>Estimated savings</span>
+              <strong id="savings"></strong>
+            </div>
+          </div>
+
+          <div class="reasoning">
+            <h3>Why this route</h3>
+            <ul id="rationale"></ul>
+          </div>
+          <div id="warnings"></div>
+        </section>
+      </section>
+
+      <section class="fleet">
+        <article><span>MINI COOPER</span><h3>Efficient</h3><p>Classification, extraction, rewriting, short support answers.</p></article>
+        <article><span>TOYOTA COROLLA</span><h3>Balanced</h3><p>Professional writing, coding, analysis, and everyday decisions.</p></article>
+        <article><span>TRACTOR / FERRARI</span><h3>Frontier</h3><p>Complex reasoning, high-stakes reviews, ambiguity, and heavy workloads.</p></article>
+      </section>
+    </main>
+
+    <script src="router.js"></script>
+    <script>
+      const byId = (id) => document.getElementById(id);
+      const currency = (value) => `$${value.toFixed(5)}`;
+
+      function render() {
+        const result = RouteWise.routeRequest(byId("prompt").value, {
+          risk: byId("risk").value,
+          latency: byId("latency").value,
+          outputTokens: byId("output-tokens").value,
+          needsTools: byId("needs-tools").checked,
+          needsVision: byId("needs-vision").checked,
+        });
+
+        byId("vehicle-badge").textContent = result.selected.vehicle.toUpperCase();
+        byId("model-name").textContent = result.selected.id;
+        byId("model-description").textContent = result.selected.description;
+        byId("intent").textContent = result.intent;
+        byId("complexity").textContent = `${result.complexity}/100`;
+        byId("risk-score").textContent = `${result.risk}/100`;
+        byId("tokens").textContent = `${result.inputTokens + result.outputTokens}`;
+        byId("selected-cost").textContent = currency(result.selectedCost);
+        byId("baseline-cost").textContent = currency(result.baselineCost);
+        byId("savings").textContent = `${result.savingsPercent.toFixed(1)}%`;
+        byId("rationale").innerHTML = result.rationale.map((item) => `<li>${item}</li>`).join("");
+        byId("warnings").innerHTML = result.warnings.map((item) => `<p class="warning">⚠ ${item}</p>`).join("");
+      }
+
+      byId("router-form").addEventListener("submit", (event) => {
+        event.preventDefault();
+        render();
+      });
+      byId("examples").addEventListener("change", (event) => {
+        if (event.target.value) {
+          byId("prompt").value = event.target.value;
+          render();
+        }
+      });
+      render();
+    </script>
+  </body>
+</html>
